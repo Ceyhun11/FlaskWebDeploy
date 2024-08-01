@@ -1,0 +1,10 @@
+﻿services:
+  - type: web
+    name: FlaskWebDeploy
+    env: python
+    plan: free  # veya başka bir plan
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "waitress-serve --host 0.0.0.0 --port $PORT wsgi:app"
+    routes:
+      - src: /api/*
+        dest: /api
