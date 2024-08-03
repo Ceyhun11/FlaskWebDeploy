@@ -6,9 +6,7 @@ import random
 from datetime import datetime
 import numpy as np
 import pickle
-from custom_encoder import CustomLabelEncoder
 import os
-from waitress import serve
 
 app = Flask(__name__)
 
@@ -23,7 +21,7 @@ label_encoder_path = os.path.join(os.getcwd(), 'models', 'label_encoders.pkl')
 model = joblib.load(model_path)
 scaler = joblib.load(scaler_path)
 with open(label_encoder_path, 'rb') as f:
-    label_encoder = pickle.load(f)
+    label_encoders = pickle.load(f)
 
 
 #label_encoder = joblib.load("C:/Users/Jeyhun/Desktop/pkl models/label_encoders.pkl")
@@ -51,11 +49,10 @@ day_of_week_mapping = {
     'Sunday': 7
 }
 
-custom_label_encoder_merchant = CustomLabelEncoder()
-custom_label_encoder_first = CustomLabelEncoder()
-custom_label_encoder_last = CustomLabelEncoder()
-custom_label_encoder_job = CustomLabelEncoder()
-
+label_encoder_merchant = label_encoders['merchant_encoder']
+label_encoder_first = label_encoders['first_encoder']
+label_encoder_last = label_encoders['last_encoder']
+label_encoder_job = label_encoders['job_encoder']
 
 def preprocess_data(data):
     
@@ -115,11 +112,16 @@ def preprocess_data(data):
                 
         df = pd.concat([df.drop(columns=['category', 'gender', 'state']), encoded_columns], axis=1)
         
-        df['merchant'] = label_encoder['merchant_encoder'].transform(df['merchant'])
-        df['first'] = label_encoder['first_encoder'].transform(df['first'])
-        df['last'] = label_encoder['last_encoder'].transform(df['last'])
-        df['job'] = label_encoder['job_encoder'].transform(df['job'])
-        
+        def handle_unknown(label_encoder, value):
+            if value in label_encoder.classes_:
+                return label_encoder.transform([value])[0]
+            else:
+                return -1
+            
+        df['merchant'] = df['merchant'].apply(lambda x: handle_unknown(label_encoder_merchant, x))
+        df['first'] = df['first'].apply(lambda x: handle_unknown(label_encoder_first, x))
+        df['last'] = df['last'].apply(lambda x: handle_unknown(label_encoder_last, x))
+        df['job'] = df['job'].apply(lambda x: handle_unknown(label_encoder_job, x))
         
         expected_columns = scaler.feature_names_in_  # Or use the columns you have from your scaler fitting phase
         df = df.reindex(columns=expected_columns, fill_value=0)
@@ -151,6 +153,6 @@ def predict():
     except Exception as e:
         app.logger.error(f"Prediction error: {e}")
         return jsonify({"error": "Internal Server Error"}), 500    
-        
-if __name__ == "__main__":
-    serve(app, host="0.0.0.0", port=8080)
+    
+if __name__ == '__main__':
+    app.run(debug=False, host="0.0.0.0")
