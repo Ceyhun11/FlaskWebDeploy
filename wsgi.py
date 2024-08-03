@@ -1,4 +1,3 @@
-from custom_encoder import CustomLabelEncoder
 from main import app
 if __name__ == '__main__':
     from waitress import serve
